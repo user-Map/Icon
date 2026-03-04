@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Emoji | FEZ Academy</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a0b2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+            background: rgba(45, 15, 80, 0.4);
+            padding: 15px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(147, 51, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .icon-btn {
+            background: rgba(147, 51, 234, 0.2);
+            border: 1px solid rgba(147, 51, 234, 0.5);
+            color: white;
+            font-size: 28px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .icon-btn:hover {
+            background: rgba(147, 51, 234, 0.6);
+            transform: translateY(-10px) scale(1.1);
+            box-shadow: 0 5px 15px rgba(147, 51, 234, 0.6);
+        }
+
+        .icon-btn:active {
+            transform: translateY(-2px) scale(0.95);
+        }
+
+        #reset-btn {
+            font-size: 16px;
+            width: auto;
+            padding: 0 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <button class="icon-btn" onclick="morphToEmoji('🚀')">🚀</button>
+        <button class="icon-btn" onclick="morphToEmoji('🌟')">🌟</button>
+        <button class="icon-btn" onclick="morphToEmoji('💜')">💜</button>
+        <button class="icon-btn" onclick="morphToEmoji('💻')">💻</button>
+        <button class="icon-btn" id="reset-btn" onclick="setSphereTargets()">Reset</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Hidden canvas to extract pixel data from emojis
+        const offCanvas = document.createElement('canvas');
+        const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+        offCanvas.width = 400;
+        offCanvas.height = 400;
+
+        let particles = [];
+        const NUM_PARTICLES = 4000;
+        let dpr = window.devicePixelRatio || 1;
+
+        function resize() {
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+        }
+
+        window.addEventListener('resize', () => {
+            resize();
+            setSphereTargets(); // Reset to sphere on resize to keep it centered
+        });
+
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.size = Math.random() * 2 + 1;
+                this.targetColor = '#b87df8';
+                this.color = this.targetColor;
+
+                // Physics properties
+                this.vx = 0;
+                this.vy = 0;
+                this.friction = Math.random() * 0.04 + 0.92;
+                this.ease = Math.random() * 0.08 + 0.02;
+            }
+
+            update() {
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+
+                this.vx += dx * this.ease * 0.1;
+                this.vy += dy * this.ease * 0.1;
+
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Add slight wandering effect when near target
+                if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+                    this.x += (Math.random() - 0.5) * 0.5;
+                    this.y += (Math.random() - 0.5) * 0.5;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.targetColor;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize particles
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+            particles.push(new Particle());
+        }
+
+        function setSphereTargets() {
+            const radius = Math.min(window.innerWidth, window.innerHeight) * 0.35;
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2 - 30; // Slightly shifted up to account for UI
+
+            particles.forEach(p => {
+                // Math for a uniform 3D sphere projected to 2D
+                const theta = Math.random() * 2 * Math.PI;
+                const phi = Math.acos((Math.random() * 2) - 1);
+                const r = radius * Math.cbrt(Math.random());
+
+                p.targetX = centerX + r * Math.sin(phi) * Math.cos(theta);
+                p.targetY = centerY + r * Math.sin(phi) * Math.sin(theta);
+
+                // Mix of purples, pinks, and blues for the sphere theme
+                const hue = 260 + (Math.random() * 60 - 30);
+                p.targetColor = `hsl(${hue}, 80%, 70%)`;
+            });
+        }
+
+        function getPixelsFromEmoji(emoji) {
+            offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+            offCtx.font = "200px 'Segoe UI Emoji', Arial";
+            offCtx.textAlign = "center";
+            offCtx.textBaseline = "middle";
+            offCtx.fillText(emoji, offCanvas.width / 2, offCanvas.height / 2);
+
+            const imageData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
+            const pixels = [];
+
+            // Step size determines how many pixels we sample (lower = more detailed)
+            const step = 4;
+
+            for (let y = 0; y < offCanvas.height; y += step) {
+                for (let x = 0; x < offCanvas.width; x += step) {
+                    const index = (y * offCanvas.width + x) * 4;
+                    const alpha = imageData[index + 3];
+
+                    if (alpha > 50) { // Ignore transparent pixels
+                        pixels.push({
+                            x: x - (offCanvas.width / 2),
+                            y: y - (offCanvas.height / 2),
+                            color: `rgba(${imageData[index]}, ${imageData[index + 1]}, ${imageData[index + 2]}, ${alpha / 255})`
+                        });
+                    }
+                }
+            }
+            return pixels;
+        }
+
+        function morphToEmoji(emoji) {
+            const pixels = getPixelsFromEmoji(emoji);
+            if (pixels.length === 0) return;
+
+            // Shuffle particles slightly so they cross over each other nicely during morphing
+            particles.sort(() => Math.random() - 0.5);
+
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2 - 30;
+            const scale = 1.8; // Scale the emoji up
+
+            particles.forEach((p, i) => {
+                // If there are more particles than pixels, loop back through the pixels
+                const pixel = pixels[i % pixels.length];
+
+                p.targetX = centerX + pixel.x * scale;
+                p.targetY = centerY + pixel.y * scale;
+                p.targetColor = pixel.color;
+            });
+        }
+
+        function animate() {
+            // Semi-transparent clear for subtle trail effect
+            ctx.fillStyle = 'rgba(26, 11, 46, 0.4)';
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start with the sphere formation
+        setSphereTargets();
+        animate();
+
+    </script>
+</body>
+
+</html>
